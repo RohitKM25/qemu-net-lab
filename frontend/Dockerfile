@@ -1,8 +1,8 @@
 FROM oven/bun:1
 WORKDIR /app/frontend
-ENV BUN_INSTALL_CONCURRENCY=4
+
 COPY ./bun.lock ./package.json ./
-RUN bun i --non-interactive
+RUN bun i --non-interactive --verbose --concurrent-scripts 4
 COPY . .
 EXPOSE 3000
 
