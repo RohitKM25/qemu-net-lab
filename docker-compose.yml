@@ -1,0 +1,107 @@
+
+services:
+  init:
+    image: alpine:latest
+    volumes:
+      - ./images:/app/images
+      - ./overlays:/app/overlays
+      - ./data:/app/data
+      - ./init.sh:/init.sh
+    entrypoint: ["/bin/sh", "/init.sh"]
+    restart: "no"
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: guacdb
+      MYSQL_USER: guacuser
+      MYSQL_PASSWORD: guacpass
+    volumes:
+      - guac-mysql-data:/var/lib/mysql
+      - ./data/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - labnet
+
+  guacamole-init:
+    image: guacamole/guacamole:1.5.4
+    user: "0:0"
+    entrypoint: >
+      sh -c "mkdir -p /init && /opt/guacamole/bin/initdb.sh --mysql > /init/init.sql"
+    volumes:
+      - ./data/init:/init
+    depends_on:
+      - mysql
+    restart: "no"
+
+
+  guacd:
+    image: guacamole/guacd:1.5.4
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "4822"]
+      interval: 5m
+      timeout: 5s
+      start_period: 15s
+    networks:
+      - labnet
+
+  guacamole:
+    image: guacamole/guacamole:1.5.4
+    depends_on:
+      mysql:
+        condition: service_healthy
+      guacd:
+        condition: service_healthy
+    environment:
+      GUACD_HOSTNAME: guacd
+      MYSQL_HOSTNAME: mysql
+      MYSQL_DATABASE: guacdb
+      MYSQL_USER: guacuser
+      MYSQL_PASSWORD: guacpass
+      JAVA_OPTS: "-XX:+UnlockExperimentalVMOptions -XX:-UseContainerSupport"
+      MAX_CONNECTIONS_PER_USER: 10
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./guac/guacamole.properties:/etc/guacamole/guacamole.properties:ro
+    networks:
+      - labnet
+
+  backend:
+    build:
+      context: ./backend
+    depends_on:
+      - guacamole
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./images:/app/images
+      - ./overlays:/app/overlays
+    networks:
+      - labnet
+    devices:
+      - /dev/kvm:/dev/kvm
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "3001:3000"
+    networks:
+      - labnet
+
+volumes:
+  guac-mysql-data:
+
+networks:
+  labnet:
+    driver: bridge
+
