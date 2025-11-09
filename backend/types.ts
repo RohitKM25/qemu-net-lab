@@ -4,6 +4,7 @@ export type NodeMetadata = {
 
 export type Node = {
   id: string;
+  type: "base"|"router";
   meta: NodeMetadata;
   overlay: string;
   status: "Running" | "Stopped" | "Wiped";

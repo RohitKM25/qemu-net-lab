@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { ChangeEvent, ChangeEventHandler, useEffect, useState } from "react";
 import axios from "axios";
 
 interface Node {
@@ -7,6 +7,7 @@ interface Node {
   meta: {
     name: string;
   };
+  type: "base"|"router";
   overlay: string;
   status: string;
   vncDisplay?: number;
@@ -15,14 +16,19 @@ interface Node {
 
 export default function Home() {
   const [nodes, setNodes] = useState<Node[]>([]);
+  const [taps, setTaps] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newType, setNewType] = useState("base");
 
   const BASE_URL = "http://localhost:3000";
 
   const refreshNodes = async () => {
     const res = await axios.get(`${BASE_URL}/nodes`);
     setNodes(res.data);
+    const rest = await axios.get(`${BASE_URL}/taps`);
+    console.log(rest);
+    setTaps(rest.data);
   };
 
   useEffect(() => {
@@ -40,14 +46,20 @@ export default function Home() {
   };
 
   const handleCreate = async () => {
-    if (!newName) return;
+    if (!newName || !newType) return;
 
     setLoading(true);
-    await axios.post(`${BASE_URL}/nodes`, { name: newName });
+    await axios.post(`${BASE_URL}/nodes/${newType}`, { name: newName });
     setNewName("");
     await refreshNodes();
     setLoading(false);
   };
+
+  const tapSelectionChange = async (event: ChangeEvent<HTMLSelectElement>,t1:string) => {
+    const t2 = (event as any).target.value;
+
+    await axios.post(`${BASE_URL}/taps/${t1}/bridge/${t2}`);
+  }
 
   return (
     <div className="p-6 bg-gray-100 text-black min-h-screen">
@@ -61,6 +73,14 @@ export default function Home() {
           onChange={(e) => setNewName(e.target.value)}
           className="px-3 py-2 border rounded flex-1"
         />
+        <select 
+          value={newType}
+          onChange={(e) => setNewType(e.target.value)}
+          className="px-3 py-2 border rounded flex-1"
+        >
+          <option value="base">Base</option>
+          <option value="router">Router</option>
+        </select>
         <button
           onClick={handleCreate}
           disabled={loading || !newName}
@@ -86,6 +106,23 @@ export default function Home() {
               </span>
             </p>
             {node.vncDisplay != null && <p>VNC Display: {node.vncDisplay}</p>}
+            {node.type && <p>Type: {node.type}</p>}
+
+            {
+              taps[node.id]?taps[node.id].map(v=>{
+                return (<div key={v}>
+                  {v}:
+                  <select onChange={(event) => tapSelectionChange(event, v)}>
+<option></option>
+                    {
+                      Object.getOwnPropertyNames(taps).filter(nid=>nid!=node.id).map(nid=>taps[nid]).flat().map(tapid=>{
+                        return <option key={tapid} value={tapid}>{tapid}</option>
+                      })
+                    }
+                  </select>
+                </div>)
+              }):''
+            }
 
             <div className="mt-4 flex gap-2 flex-wrap">
               {node.guacamoleUrl && node.status === "Running" && (

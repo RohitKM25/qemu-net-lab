@@ -75,6 +75,7 @@ services:
   backend:
     build:
       context: ./backend
+    privileged: true
     depends_on:
       - guacamole
     ports:
@@ -83,10 +84,12 @@ services:
       - ./data:/app/data
       - ./images:/app/images
       - ./overlays:/app/overlays
+      - /dev/kvm:/dev/kvm
+    cap_add:
+    - NET_ADMIN
+    - NET_RAW
     networks:
       - labnet
-    devices:
-      - /dev/kvm:/dev/kvm
 
   frontend:
     build:
