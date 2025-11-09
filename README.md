@@ -1,8 +1,13 @@
 # Qemu Network Lab
 
+- Front-end: NextJS
+- Back-end: ExpressJS
+- Virtualization: QEMU
+- Remote Console: Guacamole
+
 ## Getting Started
 
-### Prequisites
+### Prerequisites
 
 - docker
 - docker-compose
